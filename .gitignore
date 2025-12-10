@@ -29,3 +29,5 @@ celerybeat-schedule
 .idea/
 *.egg-info/
 .DS_Store
+
+figures
