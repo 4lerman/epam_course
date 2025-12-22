@@ -42,7 +42,9 @@ class ChatWithPDFApp:
                 text_summaries.append(summary)
                 print(f"Processed text chunk {i+1}/{len(texts)}")
                 time.sleep(15)  # Increased delay to 15s for rate limits
-            self.vector_store_manager.add_documents(text_summaries, texts)
+            self.vector_store_manager.add_documents(
+                text_summaries, texts, bm25_texts=text_summaries
+            )
             print("Text summarization complete.")
 
         # 3. Extract Table Summaries
@@ -55,7 +57,9 @@ class ChatWithPDFApp:
                 tables_summaries.append(summary)
                 print(f"Processed table {i+1}/{len(tables)}")
                 time.sleep(15)
-            self.vector_store_manager.add_documents(tables_summaries, tables)
+            self.vector_store_manager.add_documents(
+                tables_summaries, tables, bm25_texts=tables_summaries
+            )
             print("Table summarization complete.")
 
         # 4. Extract Image Summaries
@@ -70,7 +74,8 @@ class ChatWithPDFApp:
                 print(f"Processed image {i+1}/{len(input_images_base64)}")
                 # OpenAI has higher limits, so we don't need the long sleep here
             self.vector_store_manager.add_documents(
-                images_summaries, input_images_base64)
+                images_summaries, input_images_base64, bm25_texts=images_summaries
+            )
             print("Image summarization complete.")
 
         # 5. Initialize RAG Chain

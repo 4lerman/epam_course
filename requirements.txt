@@ -10,3 +10,4 @@ unstructured[all-docs]
 tiktoken
 streamlit
 python-dotenv
+rank-bm25
