@@ -11,6 +11,8 @@ class Order(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     customer_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
-    total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="pending", index=True)
+    total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, index=True)

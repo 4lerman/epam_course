@@ -38,7 +38,8 @@ def client(tmp_path):
         f"sqlite:///{db_path}",
         connect_args={"check_same_thread": False},
     )
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
 
     database.engine = engine
     database.SessionLocal = TestingSessionLocal
@@ -82,35 +83,6 @@ def test_list_orders_empty(client):
     assert data["total"] == 0
 
 
-def test_list_orders_pagination_page1(client):
-    create_order(client, customer_name="A")
-    create_order(client, customer_name="B")
-    create_order(client, customer_name="C")
-
-    response = client.get("/orders", params={"page": 1, "limit": 2})
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["items"]) == 2
-    assert data["total"] == 3
-
-
-def test_list_orders_pagination_page2(client):
-    create_order(client, customer_name="A")
-    create_order(client, customer_name="B")
-    create_order(client, customer_name="C")
-
-    response = client.get("/orders", params={"page": 2, "limit": 2})
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["items"]) == 1
-    assert data["total"] == 3
-
-
-def test_list_orders_page_validation(client):
-    response = client.get("/orders", params={"page": 0})
-    assert response.status_code == 422
-
-
 def test_filter_by_status(client):
     create_order(client, customer_name="A", status="paid")
     create_order(client, customer_name="B", status="pending")
@@ -120,26 +92,6 @@ def test_filter_by_status(client):
     data = response.json()
     assert len(data["items"]) == 1
     assert data["items"][0]["status"] == "paid"
-
-
-def test_filter_by_min_amount(client):
-    create_order(client, customer_name="A", total_amount=10)
-    create_order(client, customer_name="B", total_amount=50)
-
-    response = client.get("/orders", params={"min_amount": 20})
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["items"]) == 1
-
-
-def test_filter_by_max_amount(client):
-    create_order(client, customer_name="A", total_amount=10)
-    create_order(client, customer_name="B", total_amount=50)
-
-    response = client.get("/orders", params={"max_amount": 20})
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["items"]) == 1
 
 
 def test_filter_by_date_range(client):
@@ -153,15 +105,31 @@ def test_filter_by_date_range(client):
     date_from = (now - timedelta(days=3)).isoformat()
     date_to = now.isoformat()
 
-    response = client.get("/orders", params={"date_from": date_from, "date_to": date_to})
+    response = client.get(
+        "/orders", params={"date_from": date_from, "date_to": date_to})
     assert response.status_code == 200
     data = response.json()
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == second["id"]
 
 
+def test_filter_by_amount_range(client):
+    """Test filtering by min and max amount."""
+    create_order(client, customer_name="A", total_amount=10)
+    create_order(client, customer_name="B", total_amount=50)
+    create_order(client, customer_name="C", total_amount=100)
+
+    response = client.get(
+        "/orders", params={"min_amount": 20, "max_amount": 80})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["customer_name"] == "B"
+
+
 def test_filter_invalid_amount_range(client):
-    response = client.get("/orders", params={"min_amount": 50, "max_amount": 10})
+    response = client.get(
+        "/orders", params={"min_amount": 50, "max_amount": 10})
     assert response.status_code == 400
 
 
@@ -174,3 +142,161 @@ def test_filter_invalid_date_range(client):
         },
     )
     assert response.status_code == 400
+
+
+def test_filter_invalid_status_value(client):
+    """Test that invalid status value is rejected."""
+    create_order(client, status="pending")
+    response = client.get("/orders", params={"status": "invalid_status"})
+    assert response.status_code == 400
+    assert "status must be one of" in response.json()["detail"]
+
+
+# ============== PAGINATION TESTS ==============
+
+
+def test_pagination_defaults(client):
+    """Test that default pagination values (page=1, limit=10) are applied."""
+    for i in range(15):
+        create_order(client, customer_name=f"Customer{i}")
+
+    response = client.get("/orders")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["page"] == 1
+    assert data["limit"] == 10
+    assert data["total"] == 15
+    assert len(data["items"]) == 10
+
+
+def test_pagination_custom_page_and_limit(client):
+    """Test custom page and limit together."""
+    for i in range(25):
+        create_order(client, customer_name=f"Customer{i}")
+
+    response = client.get("/orders", params={"page": 3, "limit": 7})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["page"] == 3
+    assert data["limit"] == 7
+    assert data["total"] == 25
+    assert len(data["items"]) == 7
+
+
+def test_pagination_limit_maximum(client):
+    """Test maximum limit value (100)."""
+    for i in range(105):
+        create_order(client, customer_name=f"Customer{i}")
+
+    response = client.get("/orders", params={"limit": 100})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 100
+    assert data["limit"] == 100
+    assert data["total"] == 105
+
+
+def test_pagination_page_beyond_range(client):
+    """Test requesting a page beyond available data."""
+    create_order(client, customer_name="A")
+    create_order(client, customer_name="B")
+
+    response = client.get("/orders", params={"page": 10, "limit": 10})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 0
+    assert data["page"] == 10
+    assert data["total"] == 2
+
+
+def test_pagination_last_page_partial(client):
+    """Test last page with partial results."""
+    for i in range(23):
+        create_order(client, customer_name=f"Customer{i}")
+
+    response = client.get("/orders", params={"page": 3, "limit": 10})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 3
+    assert data["total"] == 23
+
+
+def test_pagination_invalid_page_zero(client):
+    """Test that page=0 is rejected."""
+    response = client.get("/orders", params={"page": 0})
+    assert response.status_code == 422
+
+
+def test_pagination_invalid_limit_exceeds_max(client):
+    """Test that limit>100 is rejected."""
+    response = client.get("/orders", params={"limit": 101})
+    assert response.status_code == 422
+
+
+# ============== COMBINED FILTERS TESTS ==============
+
+
+def test_filter_status_and_amount(client):
+    """Test combining status and amount filters."""
+    create_order(client, customer_name="A", status="paid", total_amount=50)
+    create_order(client, customer_name="B", status="paid", total_amount=150)
+    create_order(client, customer_name="C", status="pending", total_amount=100)
+
+    response = client.get(
+        "/orders", params={"status": "paid", "min_amount": 100})
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["customer_name"] == "B"
+
+
+def test_filter_all_combined(client):
+    """Test all filters combined: status, amount, date, and pagination."""
+    now = datetime.utcnow()
+
+    orders_data = [
+        ("A", "paid", 50, now - timedelta(days=10)),
+        ("B", "paid", 100, now - timedelta(days=5)),
+        ("C", "paid", 150, now - timedelta(days=3)),
+        ("D", "pending", 100, now - timedelta(days=2)),
+        ("E", "shipped", 100, now - timedelta(days=1)),
+    ]
+
+    for name, status, amount, created in orders_data:
+        order = create_order(client, customer_name=name,
+                             status=status, total_amount=amount).json()
+        set_created_at(order["id"], created)
+
+    response = client.get("/orders", params={
+        "page": 1,
+        "limit": 10,
+        "status": "paid",
+        "min_amount": 75,
+        "max_amount": 200,
+        "date_from": (now - timedelta(days=7)).isoformat(),
+        "date_to": now.isoformat(),
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 2  # B and C
+    assert data["total"] == 2
+
+
+def test_filter_with_pagination(client):
+    """Test that pagination works correctly with filters."""
+    for i in range(20):
+        status = "paid" if i % 2 == 0 else "pending"
+        create_order(client, customer_name=f"Customer{i}", status=status)
+
+    response = client.get("/orders", params={
+        "page": 2,
+        "limit": 3,
+        "status": "paid",
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 3
+    assert data["page"] == 2
+    assert data["total"] == 10  # 10 paid orders total
+    for item in data["items"]:
+        assert item["status"] == "paid"

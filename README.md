@@ -13,8 +13,18 @@ A RESTful API built with FastAPI for managing orders with comprehensive paginati
 - ✅ Input validation with detailed error messages
 - ✅ SQLite database with SQLAlchemy ORM
 - ✅ Service layer architecture
-- ✅ Comprehensive test suite (14 tests)
+- ✅ Comprehensive test suite (21 tests)
 - ✅ Database seeding script
+- ✅ Performance optimizations (indexed queries)
+- ✅ Database exception handling
+
+## Documentation
+
+📚 **[Complete API Documentation](API_DOCUMENTATION.md)** - Detailed endpoints, request/response examples, error codes, and usage examples
+
+⚡ **[Quick Reference Guide](API_QUICK_REFERENCE.md)** - Cheat sheet for common API operations
+
+📋 **[Migration Notes](MIGRATION_NOTES.md)** - Database migration guide and performance improvements
 
 ## Project Structure
 

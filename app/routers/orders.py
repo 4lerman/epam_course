@@ -37,7 +37,8 @@ def list_orders(
             date_to=date_to,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return {
         "items": items,
         "page": page,
@@ -51,4 +52,5 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     try:
         return create_order_service(db=db, payload=payload)
     except ValueError as exc:
-        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

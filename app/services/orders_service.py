@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.order import Order
@@ -26,10 +27,17 @@ def create_order(db: Session, payload: OrderCreate) -> Order:
         status=payload.status,
         total_amount=payload.total_amount,
     )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    return order
+    try:
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        return order
+    except IntegrityError as e:
+        db.rollback()
+        raise ValueError("Database integrity error occurred") from e
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise ValueError("Database error occurred") from e
 
 
 def list_orders(
@@ -69,6 +77,10 @@ def list_orders(
         count_stmt = count_stmt.where(*filters)
         query = query.where(*filters)
 
-    total = db.scalar(count_stmt) or 0
-    items = db.execute(query.offset(offset).limit(limit)).scalars().all()
-    return items, total
+    try:
+        total = db.scalar(count_stmt) or 0
+        items = db.execute(query.offset(offset).limit(limit)).scalars().all()
+        return items, total
+    except SQLAlchemyError as e:
+        raise ValueError(
+            "Database error occurred while fetching orders") from e
